@@ -121,7 +121,6 @@ serviceCalls:
             ... on Query {
               issue {
                 ... on IssueQuery {
-                  __typename
                   getIssue {
                     ... on Issue {
                       text
@@ -138,7 +137,6 @@ serviceCalls:
         {
           "data": {
             "issue": {
-              "__typename": "IssueQuery",
               "getIssue": {
                 "text": "Foo"
               }

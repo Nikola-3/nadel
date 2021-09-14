@@ -1,4 +1,4 @@
-name: __typename is passed on namespaced fields
+name: namespaced __typename is handled
 enabled:
   nextgen: true
   current: true
@@ -87,8 +87,6 @@ serviceCalls:
             ... on Query {
               issue {
                 ... on IssueQuery {
-                  __typename
-                  aliasTypename: __typename
                   getIssue {
                     ... on Issue {
                       __typename
@@ -107,8 +105,6 @@ serviceCalls:
         {
           "data": {
             "issue": {
-              "__typename": "IssueQuery",
-              "aliasTypename": "IssueQuery",
               "getIssue": {
                 "text": "Foo",
                 "__typename": "Issue",

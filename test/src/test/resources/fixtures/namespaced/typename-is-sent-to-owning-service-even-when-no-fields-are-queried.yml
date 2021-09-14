@@ -127,30 +127,6 @@ serviceCalls:
           "extensions": {}
         }
   nextgen:
-    - serviceName: Issues
-      request:
-        query: |
-          query {
-            ... on Query {
-              issue {
-                ... on IssueQuery {
-                  __typename
-                }
-              }
-            }
-          }
-        variables: {}
-        operationName: null
-      # language=JSON
-      response: |-
-        {
-          "data": {
-            "issue": {
-              "__typename": "IssueQuery"
-            }
-          },
-          "extensions": {}
-        }
     - serviceName: IssueSearch
       request:
         query: |
