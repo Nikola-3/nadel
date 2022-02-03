@@ -54,12 +54,8 @@ internal object NadelHydrationFieldsBuilder {
             hooks = hooks
         )
 
-        val fieldChildren = deepClone(fields = hydratedField.children).let { children ->
-            when (val objectIdField = makeObjectIdField(executionBlueprint, aliasHelper, instruction)) {
-                null -> children
-                else -> children + objectIdField
-            }
-        }
+        val fieldChildren = deepClone(fields = hydratedField.children) +
+            makeObjectIdField(executionBlueprint, aliasHelper, instruction)
 
         return argBatches.map { argBatch ->
             makeActorQueries(
@@ -81,7 +77,8 @@ internal object NadelHydrationFieldsBuilder {
         val underlyingObjectType = service.underlyingSchema.getObjectType(underlyingTypeName)
             ?: error("No underlying object type")
 
-        return instructions.asSequence()
+        return instructions
+            .asSequence()
             .flatMap { it.actorInputValueDefs }
             .map { it.valueSource }
             .filterIsInstance<NadelHydrationActorInputDef.ValueSource.FieldResultValue>()

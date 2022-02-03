@@ -6,9 +6,11 @@ import graphql.nadel.dsl.RemoteArgumentSource.SourceType.FIELD_ARGUMENT
 import graphql.nadel.dsl.RemoteArgumentSource.SourceType.OBJECT_FIELD
 import graphql.nadel.dsl.UnderlyingServiceHydration
 import graphql.nadel.enginekt.util.getFieldAt
+import graphql.nadel.enginekt.util.isList
 import graphql.nadel.enginekt.util.isNonNull
 import graphql.nadel.enginekt.util.pathToActorField
 import graphql.nadel.enginekt.util.unwrapAll
+import graphql.nadel.enginekt.util.unwrapNonNull
 import graphql.nadel.validation.NadelSchemaValidationError.CannotRenameHydratedField
 import graphql.nadel.validation.NadelSchemaValidationError.DuplicatedHydrationArgument
 import graphql.nadel.validation.NadelSchemaValidationError.HydrationFieldMustBeNullable
@@ -27,7 +29,7 @@ import graphql.schema.GraphQLSchema
 internal class NadelHydrationValidation(
     private val services: Map<String, Service>,
     private val typeValidation: NadelTypeValidation,
-    private val overallSchema: GraphQLSchema
+    private val overallSchema: GraphQLSchema,
 ) {
     fun validate(
         parent: NadelServiceSchemaElement,
@@ -44,28 +46,53 @@ internal class NadelHydrationValidation(
             error("Don't invoke hydration validation if there is no hydration silly")
         }
 
-        val errors = mutableListOf<NadelSchemaValidationError>()
-        for (hydration in hydrations) {
-            val actorService = services[hydration.serviceName]
-            if (actorService == null) {
-                errors.add(MissingHydrationActorService(parent, overallField, hydration))
-                continue
-            }
+        return hydrations
+            .asSequence()
+            .flatMap { hydration ->
+                val actorService = services[hydration.serviceName]
+                    ?: return@flatMap listOf(
+                        MissingHydrationActorService(parent, overallField, hydration),
+                    )
 
-            val actorServiceQueryType = actorService.underlyingSchema.queryType
-            val actorField = actorServiceQueryType.getFieldAt(hydration.pathToActorField)
-            if (actorField == null) {
-                errors.add(MissingHydrationActorField(parent, overallField, hydration, actorServiceQueryType))
-                continue
-            }
+                val actorServiceQueryType = actorService.underlyingSchema.queryType
+                val actorField = actorServiceQueryType.getFieldAt(hydration.pathToActorField)
+                    ?: return@flatMap listOf(
+                        MissingHydrationActorField(parent, overallField, hydration, actorServiceQueryType),
+                    )
 
-            val argumentIssues = getArgumentErrors(parent, overallField, hydration, actorServiceQueryType, actorField)
-            val outputTypeIssues = getOutputTypeIssues(parent, overallField, actorService, actorField)
-            errors.addAll(argumentIssues)
-            errors.addAll(outputTypeIssues)
+                getArgumentErrors(parent, overallField, hydration, actorServiceQueryType, actorField) +
+                    getOutputTypeIssues(parent, overallField, actorService, actorField) +
+                    getBatchHydrationErrors(parent, overallField, hydration, actorField)
+            }
+            .toList()
+    }
+
+    private fun getBatchHydrationErrors(
+        parent: NadelServiceSchemaElement,
+        overallField: GraphQLFieldDefinition,
+        hydration: UnderlyingServiceHydration,
+        actorField: GraphQLFieldDefinition,
+    ): List<NadelSchemaValidationError> {
+        if (!hydration.isBatched && !actorField.type.unwrapNonNull().isList) {
+            return emptyList()
         }
 
-        return errors
+        if (!actorField.type.unwrapNonNull().isList) {
+            // todo return an error here
+        }
+
+        val sourceArgCount = hydration.arguments
+            .count {
+                it.remoteArgumentSource.sourceType == OBJECT_FIELD
+            }
+
+        if (sourceArgCount == 0) {
+            // todo return an error here
+        } else if (sourceArgCount > 1) {
+            // todo return an error here
+        }
+
+        return emptyList()
     }
 
     private fun getOutputTypeIssues(
